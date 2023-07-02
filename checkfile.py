@@ -1,18 +1,18 @@
 def validate_parameters(parameters):
-   
-        # Remove leading/trailing whitespaces
-        value = parameters.strip()
+    # Remove leading/trailing whitespaces
+    value = parameters.strip()
 
-        # Limit the length to 50 characters for 'Name' parameter
-        value = value[:50]
+    # Limit the length to 50 characters for 'Name' parameter
+    value = value[:50]
 
-        # Check for special characters
-        value = remove_special_characters(value)
+    # Check for special characters
+    value = remove_special_characters(value)
 
-        # Add the validated parameter to the dictionary
-        valid_parameter = value
+    # Add the validated parameter to the dictionary
+    valid_parameter = value
 
-        return valid_parameter
+    return valid_parameter
+
 
 def remove_special_characters(value):
     # Define a list of special characters to be removed

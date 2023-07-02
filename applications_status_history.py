@@ -1,12 +1,11 @@
-import apicall
-import sql
-import sql
-import pyodbc
-from datetime import datetime
-from dateutil import parser
-from dotenv import dotenv_values
-import logging
-import checkfile
+import apicall             # Import the apicall module
+import sql                 # Import the sql module
+import pyodbc              # Import the pyodbc library for connecting to SQL Server
+from datetime import datetime  # Import the datetime module for working with dates and times
+from dateutil import parser  # Import the parser module from dateutil for parsing dates
+from dotenv import dotenv_values  # Import the dotenv_values function from python-dotenv
+import logging             # Import the logging module for logging messages
+import checkfile           # Import the checkfile module
 
 # Load environment variables from .env file
 config = dotenv_values('.env')

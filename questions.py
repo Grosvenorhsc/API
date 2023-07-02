@@ -92,42 +92,42 @@ def get_questions():
 
                 questionids = [
                     30,#Date of Birth:
-                122,#Did one of our employees recommend you for this role?
-                202,#What is your sexual orientation?
-                201,#What is your gender identity?
-                204,#What is your ethnic group?
-                226,#What is your religion?
-                228,#Do you identify as trans?
-                251,#What is your nationality
-                252,#Are you male or female
-                253,#Do you have the right to work in the UK?
-                257,#Do you have a full driving licence?
-                258,#Do you have access to a vehicle to use for work?
-                260,#Would you be happy to work alternate weekends?
-                261,#It is a Domiciliary care role that you are applying for? This would involve providing care to vulnerable people within their own homes and providing care such as intimate personal bathing and caring for both genders. Are you happy to do this?
-                262,#Do you have any of the below to evidence entitlement to work in the UK? - Valid UK Passport, - Expired UK Passport, - UK Birth Certificate (and proof of NI), - Current Biometric Residence Permit (front and back), - EU Settlement Letter and Share Code, - Application Registration Card (ARC) front and back
-                270,#Do you have a fully enhanced adult and child DBS disclosure that you pay yearly to be subscribed to?
-                271,#Shifts include Morning/Lunch 7am-2pm Tea and beds 3pm-10pm. Could you work these shifts?
-                274,#Training Stage
-                276,#DBS Stage
-                277,#Training Sent:
-                278,#Training Completed
-                280,#DBS Sent
-                281,#DBS Returned
-                282,#DBS Number
-                285,#POVA Stage
-                286,#POVA Sent
-                287,#POVA Returned
-                289,#File Issued
-                290,#ID Badge
-                291,#Coldharbour Reference
-                294,#Received References Sufficient
-                295,#International Candidate
-                306,#CH Addition Date
-                307,#Interview Date
-                308,#International Sponsorship
-                310,#first ref sent
-                311,#all refs recived
+                    122,#Did one of our employees recommend you for this role?
+                    202,#What is your sexual orientation?
+                    201,#What is your gender identity?
+                    204,#What is your ethnic group?
+                    226,#What is your religion?
+                    228,#Do you identify as trans?
+                    251,#What is your nationality
+                    252,#Are you male or female
+                    253,#Do you have the right to work in the UK?
+                    257,#Do you have a full driving licence?
+                    258,#Do you have access to a vehicle to use for work?
+                    260,#Would you be happy to work alternate weekends?
+                    261,#It is a Domiciliary care role that you are applying for? This would involve providing care to vulnerable people within their own homes and providing care such as intimate personal bathing and caring for both genders. Are you happy to do this?
+                    262,#Do you have any of the below to evidence entitlement to work in the UK? - Valid UK Passport, - Expired UK Passport, - UK Birth Certificate (and proof of NI), - Current Biometric Residence Permit (front and back), - EU Settlement Letter and Share Code, - Application Registration Card (ARC) front and back
+                    270,#Do you have a fully enhanced adult and child DBS disclosure that you pay yearly to be subscribed to?
+                    271,#Shifts include Morning/Lunch 7am-2pm Tea and beds 3pm-10pm. Could you work these shifts?
+                    274,#Training Stage
+                    276,#DBS Stage
+                    277,#Training Sent:
+                    278,#Training Completed
+                    280,#DBS Sent
+                    281,#DBS Returned
+                    282,#DBS Number
+                    285,#POVA Stage
+                    286,#POVA Sent
+                    287,#POVA Returned
+                    289,#File Issued
+                    290,#ID Badge
+                    291,#Coldharbour Reference
+                    294,#Received References Sufficient
+                    295,#International Candidate
+                    306,#CH Addition Date
+                    307,#Interview Date
+                    308,#International Sponsorship
+                    310,#first ref sent
+                    311,#all refs recived
                 ]
                 
                 questionid = int(record.get("QuestionId"))
@@ -146,4 +146,3 @@ def get_questions():
         else:
             print('error')
             return
-

@@ -1,13 +1,13 @@
-import candidates     # import the candidates module
-import placements     # import the placements module
-import applications   # import the applications module
-import companies      # import the companies module
-import references     # import the references module
-import questions      # import the questions module
-import vacancys       # import the vacancy module
-import actions       # import the actions module
-import Workflow       # import the actions module
-import applications_status_history       # import the actions module
+import candidates         # import the candidates module
+import placements         # import the placements module
+import applications       # import the applications module
+import companies          # import the companies module
+import references         # import the references module
+import questions          # import the questions module
+import vacancys           # import the vacancy module
+import actions            # import the actions module
+import Workflow           # import the actions module
+import applications_status_history  # import the actions module
 import logging
 import datetime
 import logging.handlers
@@ -39,7 +39,7 @@ logger.info("Run started at %s", start_time)
 end_time = None
 
 try:
-
+    # Import necessary data
     companies.get_companies()
     vacancys.get_vacancys()
     candidates.get_candidates()

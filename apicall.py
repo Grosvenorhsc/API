@@ -1,11 +1,11 @@
-import time
-import requests
-import tokens
-import json
-import pandas as pd
-import sys
-import logging
-from dotenv import dotenv_values
+import time                 # Import the time module
+import requests             # Import the requests library for making HTTP requests
+import tokens               # Import the tokens module
+import json                 # Import the JSON module for working with JSON data
+import pandas as pd         # Import the pandas library for data manipulation and analysis
+import sys                  # Import the sys module for system-specific parameters and functions
+import logging              # Import the logging module for logging messages
+from dotenv import dotenv_values  # Import the dotenv_values function from python-dotenv
 
 # Configure logging
 logging.basicConfig(
@@ -17,7 +17,7 @@ logging.basicConfig(
 # Load environment variables from .env file
 config = dotenv_values('.env')
 
-max_attempts=config["MAX_RETRY_ATTEMPTS"]
+max_attempts = config["MAX_RETRY_ATTEMPTS"]
 retry_statuses = [408, 429, 500, 502, 503, 504, 505, 507, 508, 509, 510]
 
 # Configure logging
@@ -28,10 +28,10 @@ logging.basicConfig(
 )
 
 def request(api_url, body, paginated):
-    # check if the bearer token has expired or is about to expire, and get a new one if needed
+    # Check if the bearer token has expired or is about to expire, and get a new one if needed
     tokens.check_bearer_token()
 
-    # set the Authorization header to include the bearer token
+    # Set the Authorization header to include the bearer token
     headers = {
         "Authorization": "Bearer " + tokens.bt.access_token
     }
@@ -49,19 +49,19 @@ def request(api_url, body, paginated):
                 attempts = 0
                 try:
                     while attempts < int(max_attempts):
-                        # make the first API request to get the total number of pages and the first page of results
+                        # Make the first API request to get the total number of pages and the first page of results
                         return_data = requests.post(api_url, json=body, headers=headers)
 
-                        # parse the response JSON
+                        # Parse the response JSON
                         r = return_data.json()
                         status_code = return_data.status_code
-                    
+
                         if status_code == 404:
                             records.append('error')
                             logging.error("Error in paginated API request. Status Code: 404")
                             break
                         elif status_code == 200:
-                            # get the current page number and the total number of pages
+                            # Get the current page number and the total number of pages
                             if "CurrentPage" in r:
                                 current_page = r["CurrentPage"]
                                 num_pages = r["TotalPages"]
@@ -72,20 +72,20 @@ def request(api_url, body, paginated):
                             # Use pandas to flatten the nested dictionary into a dataframe
                             flat_dataframe = pd.json_normalize(r["Records"])
 
-                            # loop through the flattened dataframe and add each row as a record to the records list
+                            # Loop through the flattened dataframe and add each row as a record to the records list
                             for index, row in flat_dataframe.iterrows():
                                 record = row
                                 records.append(record)
 
                             first_loop = False
 
-                            # check if we've reached the last page of results
+                            # Check if we've reached the last page of results
                             if current_page == num_pages:
                                 keep_looping = False
                                 logging.info("Successfully fetched all paginated records")
                             break
                         elif status_code in retry_statuses:
-                            
+
                             attempts += 1
                             if attempts < max_attempts:
                                 # Wait for some time before retrying
@@ -94,7 +94,6 @@ def request(api_url, body, paginated):
                                 continue
                             else:
                                 # Run your code here for exceeding maximum attempts
-                                
                                 records.append('error')
                                 logging.error("Maximum attempts reached. Request failed.")  # Log the maximum attempts reached
                                 break
@@ -107,14 +106,14 @@ def request(api_url, body, paginated):
                 try:
                     attempts = 0
                     while attempts < int(max_attempts):
-                        # make subsequent API requests to get the next page of results
+                        # Make subsequent API requests to get the next page of results
                         body["Paging"]["RequestedPage"] = current_page + 1
 
                         return_data = requests.post(api_url, json=body, headers=headers)
 
                         r = return_data.json()
                         status_code = return_data.status_code
-                        
+
                         if status_code == 404:
                             records.append('error')
                             logging.error("Error in paginated API request. Status Code: 404")
@@ -125,12 +124,11 @@ def request(api_url, body, paginated):
 
                             flat_dataframe = pd.json_normalize(r["Records"])
 
-
                             for index, row in flat_dataframe.iterrows():
                                 record = row
                                 records.append(record)
 
-                            # check if we've reached the last page of results
+                            # Check if we've reached the last page of results
                             if current_page == num_pages:
                                 keep_looping = False
                                 logging.info("Successfully fetched all paginated records")
@@ -147,7 +145,6 @@ def request(api_url, body, paginated):
                                 continue
                             else:
                                 # Run your code here for exceeding maximum attempts
-                                
                                 records.append('error')
                                 logging.error("Maximum attempts reached. Request failed.")  # Log the maximum attempts reached
                                 break
@@ -159,7 +156,7 @@ def request(api_url, body, paginated):
         try:
             attempts = 0
             while attempts < int(max_attempts):
-                # make a non-paginated API request
+                # Make a non-paginated API request
                 tokens.check_bearer_token()
                 return_data = requests.get(api_url, headers=headers)
 
@@ -181,7 +178,7 @@ def request(api_url, body, paginated):
                             record = row
                             records.append(record)
                     elif body == 'questions':
-                        # loop through each question in the response and flatten it into a record
+                        # Loop through each question in the response and flatten it into a record
                         for question in r:
                             flat_dataframe = pd.json_normalize(question)
                             for index, row in flat_dataframe.iterrows():

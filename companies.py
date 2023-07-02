@@ -1,4 +1,3 @@
-import apicall
 import sql
 import pyodbc
 from datetime import datetime
