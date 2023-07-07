@@ -4,6 +4,7 @@ import pyodbc
 from dotenv import dotenv_values
 import logging
 import checkfile
+import apicall
 
 # Load environment variables from .env file
 config = dotenv_values('.env')

@@ -6,6 +6,7 @@ from dotenv import dotenv_values
 import checkfile
 import logging
 import os
+import apicall
 
 # Load environment variables from .env file
 config = dotenv_values('.env')
