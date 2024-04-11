@@ -1,104 +1,124 @@
-import sql
-from datetime import datetime
-import pyodbc
-from dotenv import dotenv_values
-import logging
-import checkfile
 import apicall
-
-# Load environment variables from .env file
-config = dotenv_values('.env')
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(filename)s - %(message)s',
-    filename='project.log'
-)
-
-# Connect to SQL Server using the environment variables
-try:
-    cnxn = pyodbc.connect(f'DRIVER={{SQL Server}};SERVER={config["DB_SERVER"]};DATABASE={config["DB_NAME"]};UID={config["DB_USERNAME"]};PWD={config["DB_PASSWORD"]}')
-    logging.info('Connected to the database')
-except Exception as e:
-    logging.error('Failed to connect to the database: %s', str(e), exc_info=True)
-    # Exit or handle the error appropriately
+import database_utils
+import parse_date
 
 base_url = "https://grosvenorhsc.eploy.net/api/"
 
 def get_placements():
+
+    db = database_utils.Database()
+    db.connect()
+
     class record:
         def __init__(self, PlacementId, StartDate, EndDate, PlacementStatus, Vacancy, Candidate, Salary, Salary_rate, CreationDate, ModificationDate ):
-            self.PlacementId = checkfile.validate_parameters(str(PlacementId).lower())
-            self.StartDate = checkfile.validate_parameters(str(StartDate).lower())
-            self.EndDate = checkfile.validate_parameters(str(EndDate).lower())
-            self.PlacementStatus = checkfile.validate_parameters(str(PlacementStatus).lower())
-            self.Vacancy = checkfile.validate_parameters(str(Vacancy).lower())
-            self.Candidate = checkfile.validate_parameters(str(Candidate).lower())
-            self.Salary = checkfile.validate_parameters(str(Salary).lower())
-            self.Salary_rate = checkfile.validate_parameters(str(Salary_rate).lower())
-            self.CreationDate = str(CreationDate)
-            self.ModificationDate = str(ModificationDate)
+            self.PlacementId = PlacementId
+            self.StartDate = StartDate
+            self.EndDate = EndDate
+            self.PlacementStatus = PlacementStatus
+            self.Vacancy = Vacancy
+            self.Candidate = Candidate
+            self.Salary = Salary
+            self.Salary_rate = Salary_rate
+            self.CreationDate = CreationDate
+            self.ModificationDate = ModificationDate
 
     api_url = base_url + "placements/search"  
 
     # Execute a SELECT statement
-    result = cnxn.execute("SELECT COALESCE( (select top (1) CONVERT(NVARCHAR(26), last_run, 126) + 'Z' FROM table_updaterd where table_name = 'Placements'),  CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26))as [date]")
+    results = db.query("SELECT COALESCE( (select CONVERT(NVARCHAR(26), max( P.ModificationDate), 126) + 'Z' FROM Placements P),  CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26))as [date]")
 
-    # Loop through the result set
-    rows = result.fetchall()
-
-    for row in rows:
+    for row in results:
         filterdate = row[0]
 
-    body = {
-        "Paging": {
-            "RecordsPerPage": 100,
-            "RequestedPage": 1
-        },
-        "Filters": [
-        {
-            "Route": "Placement.ModificationDate",
-            "Value": str(filterdate).replace("/","-"),
-            "Operation": "GreaterThan"
+    current_page = 1
+    total_pages = 1  # Initialize to 1 to ensure the while loop runs at least on
+
+    while current_page <= total_pages:
+        body = {
+            "Paging": {
+                "RecordsPerPage": 100,
+                "RequestedPage": current_page
+            },
+            "Filters": [
+            {
+                "Route": "Placement.ModificationDate",
+                "Value": str(filterdate).replace("/","-"),
+                "Operation": "GreaterThan"
+            }
+            ],
+            "ResponseBlocks":[
+                "PlacementId",
+                "StartDate",
+                "EndDate",
+                "PlacementStatus",
+                "Vacancy",
+                "Candidate",
+                "Salary",
+                "CreationDate",
+                "ModificationDate"
+            ]
         }
-        ],
-        "ResponseBlocks":[
-            "PlacementId",
-            "StartDate",
-            "EndDate",
-            "PlacementStatus",
-            "Vacancy",
-            "Candidate",
-            "Salary",
-            "CreationDate",
-            "ModificationDate"
-        ]
-    }
 
-    paginated = True
+        r = apicall.request(api_url, body, "POST")
 
-    r = apicall.request(api_url, body, paginated)
+        # Check if the 'TotalPages' field is present and update total_pages
+        total_pages = r.get('TotalPages', 1)
 
-    for row in r:
+        for placment in r['Records']:
 
-        p1 = record(
-            str(row.get("PlacementId")), 
-            str(row.get("StartDate")), 
-            str(row.get("EndDate")), 
-            str(row.get("PlacementStatus.Description")), 
-            str(row.get("Vacancy.Id")),
-            str(row.get("Candidate.Id")),
-            str(row.get("Salary.Salary")),
-            str(row.get("Salary.SalaryInterval.Description")),
-            str(row.get("CreationDate")),
-            str(row.get("ModificationDate"))
-        )
+            PlacementStatus_data = placment.get('PlacementStatus')
+            PlacementStatus = 'None' if PlacementStatus_data is None else PlacementStatus_data.get('Description')
 
-        # Log the company ID
-        logging.info('Processed record: PlacementId=%s', p1.PlacementId)
+            Vacancy_data = placment.get('Vacancy')
+            Vacancy = 'None' if Vacancy_data is None else Vacancy_data.get('Id')
 
-        # Define the SQL INSERT statement
-        sql_query = "INSERT INTO Temp_Placements (PlacementId,StartDate,EndDate,PlacementStatus,Vacancy,Candidate,Salary,Salary_rate,CreationDate,ModificationDate) VALUES (?,?,?,?,?,?,?,?,?,?);"
+            Candidate_data = placment.get('Candidate')
+            Candidate = 'None' if Candidate_data is None else Candidate_data.get('Id')
 
-        sql.request(p1, sql_query)
+            Salary_data = placment.get('Salary')
+            Salary = 'None' if Salary_data is None else Salary_data.get('Salary')
+            SalaryInterval = 'None' if Salary_data['SalaryInterval'] is None else Salary_data['SalaryInterval']['Description']
+
+            p1 = record(
+                str(placment.get("PlacementId")), 
+                str(placment.get("StartDate")), 
+                str(placment.get("EndDate")), 
+                PlacementStatus, 
+                Vacancy,
+                Candidate,
+                Salary,
+                SalaryInterval,
+                str(placment.get("CreationDate")),
+                str(placment.get("ModificationDate"))
+            )
+
+            # Define the SQL INSERT statement
+            sql_query = "INSERT INTO Temp_Placements (PlacementId,StartDate,EndDate,PlacementStatus,Vacancy,Candidate,Salary,Salary_rate,CreationDate,ModificationDate) VALUES (?,?,?,?,?,?,?,?,?,?);"
+
+            db.query(sql_query, p1)
+            db.commit()
+        
+        # Move to the next page
+        current_page += 1
+
+    # Define the SQL INSERT statement
+    # Execute a SELECT statement
+    results = db.query("SELECT COALESCE( (select CONVERT(NVARCHAR(26), max( P.ModificationDate), 126) + 'Z' FROM Placements P),  CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26))as [date]")
+
+    for row in results:
+        filterdate = row[0]
+        sql_query = "UPDATE table_updaterd SET last_run = ? WHERE table_name = 'Placements';"
+
+        # Convert string to datetime object
+        formats = ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ']
+        dt = parse_date.parse_date(filterdate, formats)
+
+        # Convert datetime object to string with desired format
+        #formatted_date = dt.strftime('%Y/%m/%d')
+
+        updatedate = []
+        updatedate.append(dt)
+
+        db.query(sql_query, updatedate)
+        db.commit()
+    db.close()

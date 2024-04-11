@@ -1,77 +1,58 @@
-import apicall             # Import the apicall module
-import sql                 # Import the sql module
+import apicall             # Import the apicall module 
 from datetime import datetime  # Import the datetime module for working with dates and times
-import pyodbc              # Import the pyodbc library for connecting to SQL Server
-import checkfile           # Import the checkfile module
-import logging             # Import the logging module for logging messages
-from dotenv import dotenv_values  # Import the dotenv_values function from python-dotenv
-
-# Load environment variables from .env file
-config = dotenv_values('.env')
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(filename)s - %(message)s',
-    filename='project.log'
-)
+import database_utils
+import parse_date
 
 # Set base URL for API calls
 base_url = "https://grosvenorhsc.eploy.net/api/"
-
-# Protect database connection with try-except block
-try:
-    # Establish the database connection using environment variables
-    cnxn = pyodbc.connect(f"DRIVER={{SQL Server}};SERVER={config['DB_SERVER']};DATABASE={config['DB_NAME']};UID={config['DB_USERNAME']};PWD={config['DB_PASSWORD']}")
-    logging.info('Connected to the database')
-except Exception as e:
-    # Log the error message
-    logging.error('Failed to connect to the database: %s', str(e), exc_info=True)
-    # Exit or handle the error appropriately
-
+    
 def get_candidates():
+
+    db = database_utils.Database()
+    db.connect()
+
     class record:
         def __init__(self, CandidateId, Title, FirstName, Surname, Address1, Address2, Town, County, Country, PostCode, Telephone, Mobile, Email, Gender, CriminalRecord, WorkPermit, WorkPermitType, PreferredLocation1, IsEmployee, IsPreviousEmployee, CreationDate, ModificationDate):
             # Convert all data to string type and store in instance variables
-            self.CandidateId = checkfile.validate_parameters(str(CandidateId).lower())
-            self.Title = checkfile.validate_parameters(str(Title).lower())
-            self.FirstName = checkfile.validate_parameters(str(FirstName).lower())
-            self.Surname = checkfile.validate_parameters(str(Surname).lower())
-            self.Address1 = checkfile.validate_parameters(str(Address1).lower())
-            self.Address2 = checkfile.validate_parameters(str(Address2).lower())
-            self.Town = checkfile.validate_parameters(str(Town).lower())
-            self.County = checkfile.validate_parameters(str(County).lower())
-            self.Country = checkfile.validate_parameters(str(Country).lower())
-            self.PostCode = checkfile.validate_parameters(str(PostCode).lower())
-            self.Telephone = checkfile.validate_parameters(str(Telephone).lower())
-            self.Mobile = checkfile.validate_parameters(str(Mobile).lower())
-            self.Email = checkfile.validate_parameters(str(Email).lower())
-            self.Gender = checkfile.validate_parameters(str(Gender).lower())
-            self.CriminalRecord = checkfile.validate_parameters(str(CriminalRecord).lower())
-            self.WorkPermit = checkfile.validate_parameters(str(WorkPermit).lower())
-            self.WorkPermitType = checkfile.validate_parameters(str(WorkPermitType).lower())
-            self.PreferredLocation1 = checkfile.validate_parameters(str(PreferredLocation1).lower())
-            self.IsEmployee = checkfile.validate_parameters(str(IsEmployee).lower())
-            self.IsPreviousEmployee = checkfile.validate_parameters(str(IsPreviousEmployee).lower())
+            self.CandidateId = CandidateId
+            self.Title = str(Title)[:50]
+            self.FirstName = str(FirstName)[:50]
+            self.Surname = str(Surname)[:50]
+            self.Address1 = str(Address1)[:50]
+            self.Address2 = str(Address2)[:50]
+            self.Town = str(Town)[:50]
+            self.County = str(County)[:50]
+            self.Country = str(Country)[:50]
+            self.PostCode = str(PostCode)[:50]
+            self.Telephone = str(Telephone)[:50]
+            self.Mobile = str(Mobile)[:50]
+            self.Email = str(Email)[:50]
+            self.Gender = str(Gender)[:50]
+            self.CriminalRecord = str(CriminalRecord)[:50]
+            self.WorkPermit = str(WorkPermit)[:50]
+            self.WorkPermitType = str(WorkPermitType)[:50]
+            self.PreferredLocation1 = str(PreferredLocation1)[:50]
+            self.IsEmployee = str(IsEmployee)[:50]
+            self.IsPreviousEmployee = str(IsPreviousEmployee)[:50]
             self.CreationDate = str(CreationDate)
             self.ModificationDate = str(ModificationDate)
 
     api_url = base_url + "candidates/search"
+    
+    # Execute a SELECT statement
+    results = db.query("SELECT COALESCE( (select CONVERT(NVARCHAR(26), max( C.ModificationDate), 126) + 'Z' FROM Candidates C),  CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26))as [date]")
 
-    try:
-        # Execute a SELECT statement
-        result = cnxn.execute("SELECT COALESCE((SELECT TOP (1) CONVERT(NVARCHAR(26), last_run, 126) + 'Z' FROM table_updaterd WHERE table_name = 'Candidates'), CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26)) AS [date]")
-
-        # Loop through the result set
-        rows = result.fetchall()
-
-        for row in rows:
-            filterdate = row[0]
-
+    for row in results:
+        filterdate = row[0]
+        
+    current_page = 1
+    total_pages = 1  # Initialize to 1 to ensure the while loop runs at least once
+    
+    while current_page <= total_pages:
         body = {
             "Paging": {
                 "RecordsPerPage": 100,
-                "RequestedPage": 1
+                "RequestedPage": current_page
             },
             "Filters": [
                 {
@@ -81,66 +62,98 @@ def get_candidates():
                 }
             ],
             "ResponseBlocks": [
-                "CandidateId",
-                "Title",
-                "FirstName",
-                "Surname",
-                "Address",
-                "Telephone",
-                "Mobile",
-                "Email",
-                "Gender",
-                "CriminalRecord",
-                "WorkPermit",
-                "WorkPermitType",
-                "PreferredLocation1",
-                "IsEmployee",
-                "IsPreviousEmployee",
-                "CreationDate",
-                "ModificationDate"
+                "CandidateId", "Title", "FirstName", "Surname", "Address",
+                "Telephone", "Mobile", "Email", "Gender", "CriminalRecord",
+                "WorkPermit", "WorkPermitType", "PreferredLocation1",
+                "IsEmployee", "IsPreviousEmployee", "CreationDate", "ModificationDate"
             ]
         }
+    
+        # Assuming apicall.request() returns a JSON-parsed dictionary
+        r = apicall.request(api_url, body, "POST")
+        
+        # Check if the 'TotalPages' field is present and update total_pages
+        total_pages = r.get('TotalPages', 1)
+    
+        for row in r['Records']:
 
-        paginated = True
+            title_data = row.get('Title')
+            title = 'None' if title_data is None else title_data.get('Description')
 
-        r = apicall.request(api_url, body, paginated)
+            address_data = row.get('Address')
+            address1 = 'None' if address_data['Address1'] is None else address_data.get('Address1')
+            address2 = 'None' if address_data['Address2'] is None else address_data.get('Address2')
+            addresstown = 'None' if address_data['Town'] is None else address_data.get('Town')
+            addresscounty = 'None' if address_data['County'] is None else address_data.get('County')
+            addresscountdesc = 'None' if address_data['Country'] is None else address_data['Country']['Description']
+            addresspostcode = 'None' if address_data['PostCode'] is None else address_data.get('PostCode')
 
-        for row in r:
+            gender_data = row.get('Gender')
+            gender = 'None' if gender_data is None else gender_data.get('Description')
+
+            workpermit_data = row.get('WorkPermitType')
+            permtype = 'None' if workpermit_data is None else workpermit_data.get('Description')
+
+            location_data = row.get('PreferredLocation1')
+            location = 'None' if location_data is None else location_data.get('Description')
+
             p1 = record(
-                str(row.get("CandidateId")),
-                str(row.get("Title.Description")),
-                str(row.get("FirstName")),
-                str(row.get("Surname")),
-                str(row.get("Address.Address1")),
-                str(row.get("Address.Address2")),
-                str(row.get("Address.Town")),
-                str(row.get("Address.County")),
-                str(row.get("Address.Country.Description")),
-                str(row.get("Address.PostCode")),
-                str(row.get("Telephone")),
-                str(row.get("Mobile")),
-                str(row.get("Email")),
-                str(row.get("Gender.Description")),
-                str(row.get("CriminalRecord")),
-                str(row.get("WorkPermit")),
-                str(row.get("WorkPermitType.Description")),
-                str(row.get("PreferredLocation1.Description")),
-                str(row.get("IsEmployee")),
-                str(row.get("IsPreviousEmployee")),
-                str(row.get("CreationDate")),
-                str(row.get("ModificationDate"))
+                row.get("CandidateId"), 
+                title,
+                row.get("FirstName"), 
+                row.get("Surname"), 
+                address1,
+                address2,
+                addresstown,
+                addresscounty,
+                addresscountdesc,
+                addresspostcode, 
+                row.get("Telephone"),
+                row.get("Mobile"),
+                row.get("Email"),
+                gender,
+                row.get("CriminalRecord"),
+                row.get("WorkPermit"),
+                permtype,
+                location, 
+                row.get("IsEmployee"),
+                row.get("IsPreviousEmployee"), 
+                row.get("CreationDate"),
+                row.get("ModificationDate")
             )
+    
+            sql_query = """INSERT INTO Temp_Candidates (
+                        CandidateId, Title, FirstName, Surname, Address1, Address2, 
+                        Town, County, Country, PostCode, Telephone, Mobile, Email, 
+                        Gender, CriminalRecord, WorkPermit, WorkPermitType, 
+                        PreferredLocation1, IsEmployee, IsPreviousEmployee, 
+                        CreationDate, ModificationDate
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
+    
+            db.query(sql_query, p1)
+            db.commit()
+        
+        # Move to the next page
+        current_page += 1
 
-            # Log the company ID
-            logging.info('Processed record: CandidateReferenceId=%s', p1.CandidateId)
+    # Execute a SELECT statement
+    results = db.query("SELECT COALESCE( (select CONVERT(NVARCHAR(26), max( C.ModificationDate), 126) + 'Z' FROM Candidates C),  CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26))as [date]")
 
-            sql_query = "INSERT INTO Temp_Candidates (CandidateId, Title, FirstName, Surname, Address1, Address2, Town, County, Country, PostCode, Telephone, Mobile, Email, Gender, CriminalRecord, WorkPermit, WorkPermitType, PreferredLocation1, IsEmployee, IsPreviousEmployee, CreationDate, ModificationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
+    for row in results:
+        filterdate = row[0]
+        sql_query = "UPDATE table_updaterd SET last_run = ? WHERE table_name = 'Candidates';"
 
-            sql.request(p1, sql_query)
+        # Convert string to datetime object
+        formats = ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ']
+        dt = parse_date.parse_date(filterdate, formats)
 
-            # Log the CandidateId
-            logging.info('Processed record: CandidateId=%s', p1.CandidateId)
+        # Convert datetime object to string with desired format
+        #formatted_date = dt.strftime('%Y/%m/%d')
 
-    except Exception as e:
-        # Log the error message
-        logging.error('Error occurred: %s', str(e), exc_info=True)
+        updatedate = []
+        updatedate.append(dt)
+
+        db.query(sql_query, updatedate)
+        db.commit()
+    
+    db.close()

@@ -1,76 +1,93 @@
-import sql
-import pyodbc
 from datetime import datetime
-from dateutil import parser
-from dotenv import dotenv_values
-import checkfile
-import logging
-import os
 import apicall
-
-# Load environment variables from .env file
-config = dotenv_values('.env')
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(filename)s - %(message)s',
-    filename='project.log'
-)
+import database_utils
+import parse_date
 
 # Set base URL for API calls
 base_url = "https://grosvenorhsc.eploy.net/api/"
 
-# Connect to SQL Server using the environment variables
-cnxn = pyodbc.connect(f'DRIVER={{SQL Server}};SERVER={config["DB_SERVER"]};DATABASE={config["DB_NAME"]};UID={config["DB_USERNAME"]};PWD={config["DB_PASSWORD"]}')
-
 # Define a class to hold company record data
 def get_companies():
+
+    db = database_utils.Database()
+    db.connect()
+
     class record:
         def __init__(self, CompanyId, ParentCompany, Name, CompanyStatus, CreationDate, ModificationDate):
-            self.CompanyId = checkfile.validate_parameters(str(CompanyId).lower())
-            self.ParentCompany = checkfile.validate_parameters(str(ParentCompany).lower())
-            self.Name = checkfile.validate_parameters(str(Name).lower())
-            self.CompanyStatus = checkfile.validate_parameters(str(CompanyStatus).lower())
-            self.CreationDate = str(CreationDate)
-            self.ModificationDate = str(ModificationDate)
+            self.CompanyId = int(CompanyId)
+
+            try:
+                # If ParentCompany can be converted to float and is not 'nan'
+                if ParentCompany != 'nan':
+                    self.ParentCompany = ParentCompany
+                else:
+                    self.ParentCompany = None
+            except ValueError:
+                # Handle case where ParentCompany can't be converted to float
+                self.ParentCompany = None
+
+            self.Name = str(Name)
+            self.CompanyStatus = str(CompanyStatus)
+            self.CreationDate = CreationDate
+            self.ModificationDate = ModificationDate
 
     # Set API URL for retrieving company data
     api_url = base_url + "companies/search"
 
-    # Set the filter parameters to retrieve all company records
-    body = {
-        "Paging": {
-            "RecordsPerPage": 100,
-            "RequestedPage": 1
-        },
-        "Filters": [
+    # Execute a SELECT statement
+    results = db.query("SELECT COALESCE( (select CONVERT(NVARCHAR(26), max( C.ModificationDate), 126) + 'Z' FROM Companies C),  CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26))as [date]")
 
-        ],
-        "ResponseBlocks": [
-            "CompanyId",
-            "ParentCompany",
-            "Name",
-            "CompanyStatus",
-            "CreationDate",
-            "ModificationDate"
-        ]
-    }
+    for row in results:
+        filterdate = row[0]
 
-    try:
-        # Set the pagination flag to True to retrieve all records
-        paginated = True
+    current_page = 1
+    total_pages = 1  # Initialize to 1 to ensure the while loop runs at least once
+    
+    while current_page <= total_pages:
+
+        # Set the filter parameters to retrieve all company records
+        body = {
+            "Paging": {
+                "RecordsPerPage": 100,
+                "RequestedPage": current_page
+            },
+            "Filters": [
+                # {
+                #     "Route": "Company.ModificationDate",
+                #     "Value": str(filterdate).replace("/", "-"),
+                #     "Operation": "GreaterThan"
+                # }
+            ],
+            "ResponseBlocks": [
+                "CompanyId",
+                "ParentCompany",
+                "Name",
+                "CompanyStatus",
+                "CreationDate",
+                "ModificationDate"
+            ]
+        }
 
         # Call the API to retrieve the company data
-        r = apicall.request(api_url, body, paginated)
+        r = apicall.request(api_url, body, "POST")
+
+        # Check if the 'TotalPages' field is present and update total_pages
+        total_pages = r.get('TotalPages', 1)
 
         # Loop through each record in the response and insert into the SQL Server database
-        for row in r:
+        for row in r['Records']:
+
+            ParentCompany_data = row.get('ParentCompany')
+            ParentCompany = 'None' if ParentCompany_data is None or CompanyStatus_data is 'None' else ParentCompany_data.get('Id')
+
+            CompanyStatus_data = row.get('CompanyStatus')
+            CompanyStatus = 'None' if CompanyStatus_data is None or CompanyStatus_data is 'None' else CompanyStatus_data.get('Description')
+
             p1 = record(
                 str(row.get("CompanyId")),
-                str(row.get("ParentCompany.Id")),
+                ParentCompany,
                 str(row.get("Name")),
-                str(row.get("CompanyStatus.Description")),
+                CompanyStatus,
                 str(row.get("CreationDate")),
                 str(row.get("ModificationDate"))
             )
@@ -78,12 +95,30 @@ def get_companies():
             # Define the SQL query to insert the record into the database
             sql_query = "INSERT INTO Temp_Companies ([CompanyId],[ParentCompany],[Name],[CompanyStatus],[CreationDate],[ModificationDate]) VALUES (?,?,?,?,?,?);"
 
-            # Execute the SQL query to insert the record into the database
-            sql.request(p1, sql_query)
+            db.query(sql_query, p1)
+            db.commit()
+                    
+        # Move to the next page
+        current_page += 1
+        
+    results = db.query("SELECT COALESCE( (select CONVERT(NVARCHAR(26), max( C.ModificationDate), 126) + 'Z' FROM Companies C),  CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26))as [date]")
 
-            # Log the company ID
-            logging.info('Processed record: CompanyId=%s', p1.CompanyId)
+    for row in results:
+        filterdate = row[0]
+        sql_query = "UPDATE table_updaterd SET last_run = ? WHERE table_name = 'Companies';"
 
-    except Exception as e:
-        # Log the error message
-        logging.error('Error occurred: %s', str(e), exc_info=True)
+        # Convert string to datetime object
+        formats = ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ']
+        dt = parse_date.parse_date(filterdate, formats)
+
+        # Convert datetime object to string with desired format
+        formatted_date = dt.strftime('%Y-%m-%d')
+
+        updatedate = []
+        updatedate.append(formatted_date)
+
+        db.query(sql_query, updatedate)
+        db.commit()
+    
+    db.close()
+        

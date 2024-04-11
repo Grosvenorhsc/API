@@ -1,65 +1,43 @@
 import apicall
-import sql
-import pyodbc
+import database_utils
 from datetime import datetime
-from dateutil import parser
-from dotenv import dotenv_values
-import checkfile
-import logging
-import os
-
-# Load environment variables from .env file
-config = dotenv_values('.env')
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(filename)s - %(message)s',
-    filename='project.log'
-)
+import parse_date
 
 # Set base URL for API calls
 base_url = "https://grosvenorhsc.eploy.net/api/"
-
-# Protect database connection with try-except block
-try:
-    # Connect to SQL Server using the environment variables
-    cnxn = pyodbc.connect(f'DRIVER={{SQL Server}};SERVER={config["DB_SERVER"]};DATABASE={config["DB_NAME"]};UID={config["DB_USERNAME"]};PWD={config["DB_PASSWORD"]}')
-    logging.info('Connected to the database')
-except Exception as e:
-    # Log the error message
-    logging.error('Failed to connect to the database: %s', str(e), exc_info=True)
-    # Exit or handle the error appropriately
-
+  
 def get_vacancys():
+
+    db = database_utils.Database()
+    db.connect()
+
     class record:
         def __init__(self, VacancyId, Title, VacancyStatus, Location, Company, Salary, CreationDate, ModificationDate):
             # Convert all data to string type and store in instance variables
-            self.VacancyId = checkfile.validate_parameters(str(VacancyId).lower())
-            self.Title = checkfile.validate_parameters(str(Title).lower())
-            self.VacancyStatus = checkfile.validate_parameters(str(VacancyStatus).lower())
-            self.Location = checkfile.validate_parameters(str(Location).lower())
-            self.Company = checkfile.validate_parameters(str(Company).lower())
-            self.Salary = checkfile.validate_parameters(str(Salary).lower())
-            self.CreationDate = str(CreationDate)
-            self.ModificationDate = str(ModificationDate)
+            self.VacancyId = int(VacancyId)
+            self.Title = str(Title)
+            self.VacancyStatus = str(VacancyStatus)
+            self.Location = str(Location)
+            self.Company = Company
+            self.Salary = Salary
+            self.CreationDate = CreationDate
+            self.ModificationDate = ModificationDate
 
     api_url = base_url + "vacancies/search"
 
-    try:
-        # Execute a SELECT statement
-        result = cnxn.execute("SELECT COALESCE((SELECT TOP (1) CONVERT(NVARCHAR(26), last_run, 126) + 'Z' FROM table_updaterd WHERE table_name = 'Vacancies'), CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26)) AS [date]")
+    results = db.query("SELECT COALESCE( (select CONVERT(NVARCHAR(26), max( V.ModificationDate), 126) + 'Z' FROM Vacancys V),  CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26))as [date]")
 
-        # Loop through the result set
-        rows = result.fetchall()
+    for row in results:
+        filterdate = row[0]
 
-        for row in rows:
-            filterdate = row[0]
-
+    current_page = 1
+    total_pages = 1  # Initialize to 1 to ensure the while loop runs at least once
+    
+    while current_page <= total_pages:
         body = {
             "Paging": {
                 "RecordsPerPage": 100,
-                "RequestedPage": 1
+                "RequestedPage": current_page
             },
             "Filters": [
                 # {
@@ -80,34 +58,64 @@ def get_vacancys():
             ]
         }
 
-        paginated = True
+        r = apicall.request(api_url, body, "POST")
 
-        r = apicall.request(api_url, body, paginated)
+        # Check if the 'TotalPages' field is present and update total_pages
+        total_pages = r.get('TotalPages', 1)
 
-        for row in r:
+        for row in r['Records']:
+
+            VacancyStatus_data = row.get('VacancyStatus')
+            VacancyStatus = 'None' if VacancyStatus_data is None else VacancyStatus_data.get('Description')
+
+            Location_data = row.get('Location')
+            Location = 'None' if Location_data is None else Location_data.get('Description')
+
+            Company_data = row.get('Company')
+            Company = 'None' if Company_data is None else Company_data.get('Id')
+
+            Salary_data = row.get('Salary')
+            Salary = 'None' if Salary_data is None else Salary_data.get('Salary')
+
             p1 = record(
-                str(row.get("VacancyId")),
-                str(row.get("Title")),
-                str(row.get("VacancyStatus.Description")),
-                str(row.get("Location.Description")),
-                str(row.get("Company.Id")),
-                str(row.get("Salary.Salary")),
-                str(row.get("CreationDate")),
-                str(row.get("ModificationDate"))
+                row.get("VacancyId"),
+                row.get("Title"),
+                VacancyStatus,
+                Location,
+                Company,
+                Salary,
+                row.get("CreationDate"),
+                row.get("ModificationDate")
             )
-
-            # Log the company ID
-            logging.info('Processed record: VacancyId=%s', p1.VacancyId)
 
             # Define the SQL INSERT statement
             sql_query = "INSERT INTO Temp_Vacancys (VacancyId, Title, VacancyStatus, Location, Company, Salary, CreationDate, ModificationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
 
-            # Execute the SQL query to insert the record into the database
-            sql.request(p1, sql_query)
+            # Execute the SQL query using the sql.request function
+            db.query(sql_query, p1)
+            db.commit()
 
-            # Log the VacancyId
-            logging.info('Processed record: VacancyId=%s', p1.VacancyId)
+        # Move to the next page
+        current_page += 1
 
-    except Exception as e:
-        # Log the error message
-        logging.error('Error occurred: %s', str(e), exc_info=True)
+    results = db.query("SELECT COALESCE( (select CONVERT(NVARCHAR(26), max( V.ModificationDate), 126) + 'Z' FROM Vacancys V),  CONVERT(NVARCHAR(26), '2023/01/01T00:00:00Z', 26))as [date]")
+
+    for row in results:
+        filterdate = row[0]
+        sql_query = "UPDATE table_updaterd SET last_run = ? WHERE table_name = 'Vacancys';"
+
+        # Convert string to datetime object
+        formats = ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ']
+        dt = parse_date.parse_date(filterdate, formats)
+
+        # Convert datetime object to string with desired format
+        #formatted_date = dt.strftime('%Y/%m/%d')
+
+        updatedate = []
+        updatedate.append(dt)
+
+        db.query(sql_query, updatedate)
+        db.commit()
+    
+    db.close()
+

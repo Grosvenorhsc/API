@@ -3,27 +3,16 @@ import sql                 # Import the sql module
 import pyodbc              # Import the pyodbc library for connecting to SQL Server
 from datetime import datetime  # Import the datetime module for working with dates and times
 from dateutil import parser  # Import the parser module from dateutil for parsing dates
-from dotenv import dotenv_values  # Import the dotenv_values function from python-dotenv
-import logging             # Import the logging module for logging messages
 import checkfile           # Import the checkfile module
+from dotenv import load_dotenv, find_dotenv
+import os
 
-# Load environment variables from .env file
-config = dotenv_values('.env')
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(filename)s - %(message)s',
-    filename='project.log'
-)
+# Find and load the .env file
+dotenv_path = find_dotenv()
+load_dotenv(dotenv_path)
 
 # Connect to SQL Server using the environment variables
-try:
-    cnxn = pyodbc.connect(f'DRIVER={{SQL Server}};SERVER={config["DB_SERVER"]};DATABASE={config["DB_NAME"]};UID={config["DB_USERNAME"]};PWD={config["DB_PASSWORD"]}')
-    logging.info('Connected to the database')
-except Exception as e:
-    logging.error('Failed to connect to the database: %s', str(e), exc_info=True)
-    # Exit or handle the error appropriately
+cnxn = pyodbc.connect(f'DRIVER={{SQL Server}};SERVER={os.getenv("DB_SERVER")};DATABASE={os.getenv("DB_NAME")};UID={os.getenv("DB_USERNAME")};PWD={os.getenv("DB_PASSWORD")}')
 
 # Set base URL for API calls
 base_url = "https://grosvenorhsc.eploy.net/api/"
@@ -93,15 +82,11 @@ def get_status_history():
             str(row.get("ModificationDate"))
         )
 
-        # Log the company ID
-        logging.info('Processed record: StatusHistoryId=%s', p1.StatusHistoryId)
-
         # Define the SQL query to insert the record into the database
         sql_query = "INSERT INTO Temp_statushistory ([StatusHistoryId],[Application_Id],[Vacancy_Id],[Application_stage_decription],[CreationDate],[ModificationDate]) VALUES (?,?,?,?,?,?);"
 
         # Execute the SQL query to insert the record into the database
         sql.request(p1, sql_query)
-
 
 # Call the function
 get_status_history()

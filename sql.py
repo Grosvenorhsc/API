@@ -1,33 +1,25 @@
 import pyodbc
 import re
 import time
-import logging
-from dotenv import dotenv_values
+from dotenv import load_dotenv, find_dotenv
+import os
 
-# Load environment variables from .env file
-config = dotenv_values('.env')
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(filename)s - %(message)s',
-    filename='project.log'
-)
+# Find and load the .env file
+dotenv_path = find_dotenv()
+load_dotenv(dotenv_path)
 
 # Function to establish a connection to the SQL Server
 def connect_to_database():
     try:
         cnxn = pyodbc.connect(
             DRIVER="{SQL Server}",
-            SERVER=config["DB_SERVER"],
-            DATABASE=config["DB_NAME"],
-            UID=config["DB_USERNAME"],
-            PWD=config["DB_PASSWORD"]
+            SERVER=os.getenv("DB_SERVER"),
+            DATABASE=os.getenv("DB_NAME"),
+            UID=os.getenv("DB_USERNAME"),
+            PWD=os.getenv("DB_PASSWORD")
         )
-        logging.info("Connected to the SQL Server database")
         return cnxn
     except pyodbc.Error as e:
-        logging.error("Error connecting to the SQL Server database: %s", str(e))
         raise
 
 # Establish a connection to the SQL Server
@@ -62,13 +54,10 @@ def request(record, sql, max_retries=3, retry_delay=1):
             cursor.execute(sql, params)
             cnxn.commit()
             cursor.close()
-            logging.info("Record inserted successfully")
             break  # Exit the loop if the query executed successfully
         except pyodbc.Error as e:
             if 'deadlock' in str(e).lower():
-                logging.warning("Deadlock encountered. Retrying after 1 second...")
                 retries += 1
                 time.sleep(retry_delay)
             else:
-                logging.error("Error executing the parameterized query: %s", str(e))
                 break  # Exit the loop if the error is not a deadlock
