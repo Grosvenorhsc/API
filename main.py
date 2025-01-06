@@ -5,6 +5,7 @@ import companies          # import the companies module
 import references         # import the references module
 import questions          # import the questions module
 import vacancys           # import the vacancy module
+import fixbroken          # import the fixbroken module
 # import actions            # import the actions module
 # import Workflow           # import the actions module
 # import applications_status_history  # import the actions module
@@ -24,6 +25,9 @@ print("getting question data")
 questions.get_questions()
 print("getting refference data")
 references.get_refference()
+
+# Fix broken dataf
+#fixbroken.fixbroken()
 
 # applications_status_history.get_status_history()
 # #Workflow.get_workflow()

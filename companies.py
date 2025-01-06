@@ -78,10 +78,10 @@ def get_companies():
         for row in r['Records']:
 
             ParentCompany_data = row.get('ParentCompany')
-            ParentCompany = 'None' if ParentCompany_data is None or CompanyStatus_data is 'None' else ParentCompany_data.get('Id')
+            ParentCompany = 'None' if ParentCompany_data is None or CompanyStatus_data == 'None' else ParentCompany_data.get('Id')
 
             CompanyStatus_data = row.get('CompanyStatus')
-            CompanyStatus = 'None' if CompanyStatus_data is None or CompanyStatus_data is 'None' else CompanyStatus_data.get('Description')
+            CompanyStatus = 'None' if CompanyStatus_data is None or CompanyStatus_data == 'None' else CompanyStatus_data.get('Description')
 
             p1 = record(
                 str(row.get("CompanyId")),

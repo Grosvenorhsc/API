@@ -29,6 +29,7 @@ def get_placements():
 
     for row in results:
         filterdate = row[0]
+        #filterdate = "2023/01/01T00:00:00Z"
 
     current_page = 1
     total_pages = 1  # Initialize to 1 to ensure the while loop runs at least on
