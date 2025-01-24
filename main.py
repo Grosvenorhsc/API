@@ -11,13 +11,13 @@ import fixbroken          # import the fixbroken module
 # import applications_status_history  # import the actions module
 
 # # Import necessary data
-print("getting company data")
-companies.get_companies()
-print("getting vacancy data")
-vacancys.get_vacancys()
-print("getting candidate data")
-candidates.get_candidates()
-print("getting applications data")
+# print("getting company data")
+# companies.get_companies()
+# print("getting vacancy data")
+# vacancys.get_vacancys()
+# print("getting candidate data")
+# candidates.get_candidates()
+# print("getting applications data")
 applications.get_applications()
 print("getting placement data")
 placements.get_placements()
@@ -27,7 +27,7 @@ print("getting refference data")
 references.get_refference()
 
 # Fix broken dataf
-#fixbroken.fixbroken()
+fixbroken.fixbroken()
 
 # applications_status_history.get_status_history()
 # #Workflow.get_workflow()

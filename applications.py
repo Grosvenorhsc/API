@@ -38,7 +38,7 @@ def get_applications():
     for row in results:
         filterdate = row[0]
 
-    alldates = "2024/01/01T00:00:00Z"
+    alldates = "2023-01-01T00:00:00.000000Z"
 
     current_page = 1
     total_pages = 1  # Initialize to 1 to ensure the while loop runs at least once
@@ -53,7 +53,7 @@ def get_applications():
             "Filters": [
                 {
                 "Route": "Application.ModificationDate",
-                "Value": filterdate,
+                "Value": alldates,
                 "Operation": "GreaterThan"
                 }
             
