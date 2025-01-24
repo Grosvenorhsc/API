@@ -11,13 +11,13 @@ import fixbroken          # import the fixbroken module
 # import applications_status_history  # import the actions module
 
 # # Import necessary data
-# print("getting company data")
-# companies.get_companies()
-# print("getting vacancy data")
-# vacancys.get_vacancys()
-# print("getting candidate data")
-# candidates.get_candidates()
-# print("getting applications data")
+print("getting company data")
+companies.get_companies()
+print("getting vacancy data")
+vacancys.get_vacancys()
+print("getting candidate data")
+candidates.get_candidates()
+print("getting applications data")
 applications.get_applications()
 print("getting placement data")
 placements.get_placements()
